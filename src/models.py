@@ -6,6 +6,7 @@ import enum
 from database import Base
 
 
+
 class SeatTypeEnum(enum.Enum):
     VCRoom = 'VCRoom'
     VCHall = 'VCHall'
