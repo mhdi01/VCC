@@ -11,7 +11,7 @@ router = APIRouter(
 )
 
 
-@router.post("/")
+@router.post("/", response_model=schemas.ClusterOut)
 def create_cluster(cluster: schemas.Cluster, db: Session = Depends(get_db)):
     cluster_obj = crud.get_cluster_by_name_and_fqdn(name=cluster.name, fqdn=cluster.DefaultFQDN, db=db)
     if cluster_obj:
@@ -20,25 +20,27 @@ def create_cluster(cluster: schemas.Cluster, db: Session = Depends(get_db)):
     resp = crud.create_cluster(db=db, cluster=cluster)
     return resp
 
-@router.get("/")
+@router.get("/", response_model=list[schemas.ClusterOut])
 def read_clusters(db: Session = Depends(get_db)):
     resp = crud.get_clusters(db=db)
     return resp
 
 
-@router.get("/{cluster_id}")
+@router.get("/{cluster_id}", response_model=schemas.ClusterOut)
 def retrieve_cluster(cluster_id: str, db: Session = Depends(get_db)):
     resp = crud.retrieve_cluster(cluster_id=cluster_id, db=db)
+    if not resp:
+        raise HTTPException(status_code=404, detail='Cluster not found')
     return resp
 
 
-@router.put("/{cluster_id}")
+@router.put("/{cluster_id}", response_model=schemas.ClusterOut)
 def update_cluster(cluster_id: str, data:schemas.ClusterBase, db:Session = Depends(get_db)):
     resp = crud.update_cluster(cluster_id=cluster_id, data=data, db=db)
     return resp
 
 
-@router.patch("/{cluster_id}")
+@router.patch("/{cluster_id}", response_model=schemas.ClusterOut)
 def update_cluster_partial(cluster_id: str, data:schemas.ClusterPatch, db: Session = Depends(get_db)):
     resp = crud.update_cluster(cluster_id=cluster_id, data=data, db=db)
     return resp

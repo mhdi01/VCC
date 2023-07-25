@@ -32,6 +32,8 @@ def retrieve_cluster(cluster_id: str, db:Session):
 def update_cluster(cluster_id: str, data: schemas.ClusterBase, db:Session):
     repo = TableRepository(db, models.Cluster)
     cluster = repo.find_by_id(cluster_id)
+    if not cluster:
+        raise HTTPException(status_code=404, detail='Cluster Not found')
     if cluster:
         try:
             update_data = data.model_dump(exclude_unset=True)
@@ -43,7 +45,7 @@ def update_cluster(cluster_id: str, data: schemas.ClusterBase, db:Session):
             print("Error Updating Cluster",e.__str__())
             raise HTTPException(status_code=400, detail="Unable to Update the Cluster")
             
-    return jsonable_encoder(cluster)
+    return cluster
 
 
 def delete_cluster(cluster_id: str, db:Session):

@@ -12,7 +12,7 @@ def test_create_cluster():
     data = {
         "name": cluster_name,
         "SeatType": "VCRoom",
-        "MaxLimit": 7,
+        "MaxLimit": 10000,
         "DefaultFQDN": "string",
         "DefaultSettingId": setting_id,
         "Status": True
@@ -48,7 +48,7 @@ def test_update_cluster():
     data = {
         "name": cluster_name,
         "SeatType": "VCRoom",
-        "MaxLimit": 7,
+        "MaxLimit": 1000,
         "DefaultFQDN": "string",
         "DefaultSettingId": setting_id,
         "Status": True

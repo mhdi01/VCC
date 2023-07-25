@@ -11,7 +11,7 @@ router = APIRouter(
 )
 
 
-@router.post("/")
+@router.post("/", response_model=schemas.ProfileOut)
 def create_profile(profile: schemas.Profile, db: Session = Depends(get_db)):
     profile_obj = crud.get_profile_by_name_and_fqdn(name=profile.name, tag=profile.ProfileTag, db=db)
     if profile_obj:
@@ -20,25 +20,27 @@ def create_profile(profile: schemas.Profile, db: Session = Depends(get_db)):
     resp = crud.create_profile(db=db, profile=profile)
     return resp
 
-@router.get("/")
+@router.get("/", response_model=list[schemas.ProfileOut])
 def read_profiles(db: Session = Depends(get_db)):
     resp = crud.get_profiles(db=db)
     return resp
 
 
-@router.get("/{profile_id}")
+@router.get("/{profile_id}", response_model=schemas.ProfileOut)
 def retrieve_profile(profile_id: str, db: Session = Depends(get_db)):
     resp = crud.retrieve_profile(profile_id=profile_id, db=db)
+    if not resp:
+        raise HTTPException(status_code=404, detail='Profile Not Found')
     return resp
 
 
-@router.put("/{profile_id}")
+@router.put("/{profile_id}", response_model=schemas.ProfileOut)
 def update_profile(profile_id: str, data:schemas.ProfileBase, db:Session = Depends(get_db)):
     resp = crud.update_profile(profile_id=profile_id, data=data, db=db)
     return resp
 
 
-@router.patch("/{profile_id}")
+@router.patch("/{profile_id}", response_model=schemas.ProfileOut)
 def update_profile_partial(profile_id: str, data:schemas.ProfilePatch, db: Session = Depends(get_db)):
     resp = crud.update_profile(profile_id=profile_id, data=data, db=db)
     return resp

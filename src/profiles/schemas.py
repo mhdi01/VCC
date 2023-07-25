@@ -19,6 +19,19 @@ class Profile(ProfileBase):
         from_attributes = True
 
 
+class ProfileOut(BaseModel):
+    id: str
+    name: constr(min_length=1, max_length=127)
+    ProfileTag: constr(min_length=1, max_length=127)
+    ReservedAliases: set
+    ProfileFQDN: constr(max_length=100)
+    Status: bool
+    RegistrationTime: datetime.date | None = None
+    LastUpdateTime: datetime.date | None = None
+    CreatedBy: str | None = None
+    LastUpdateBy: str | None = None
+
+
 class ProfilePatch(ProfileBase):
     name: constr(min_length=1, max_length=127) | None = None
     ProfileTag: constr(min_length=1, max_length=127) | None = None

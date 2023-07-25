@@ -24,6 +24,24 @@ class Setting(SettingBase):
         from_attributes = True
 
 
+class SettingOut(BaseModel):
+    id: str
+    name: constr(min_length=1, max_length=127)
+    SeatType: Optional[Enum] = Field(None, description="SeatType Has Issue")
+    MaxCallRate: conint(gt=19, lt=10000)
+    OverlayText: bool
+    HostView: Optional[Enum] = Field(None, description="HostView Has Issue")
+    EnableChat: bool
+    GuestsCanPresent: bool
+    MuteAllGuests: bool
+    IsDefault: bool
+    Status: bool
+    RegistrationTime: datetime.date | None = None
+    LastUpdateTime: datetime.date | None = None
+    CreatedBy: str | None = None
+    LastUpdateBy: str | None = None
+
+
 class SettingPatch(SettingBase):
     name: constr(min_length=1, max_length=127) | None = None
     SeatType: SeatTypeEnum | None = None

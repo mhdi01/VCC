@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Optional, List
 from pydantic import (
     BaseModel,
     NegativeInt,
@@ -6,7 +6,9 @@ from pydantic import (
     conint,
     conlist,
     constr,
-    conset
+    conset,
+    Field,
+    Json
 )
 import datetime
 from enum import Enum
@@ -26,3 +28,8 @@ class HostViewEnum(str, Enum):
     one_main_seven_pips = 'one_main_seven_pips'
     one_main_twentyone_pips = 'one_main_twentyone_pips'
     two_mains_twentyone_pips = 'two_mains_twentyone_pips'
+
+
+class PlanTypeEnum(str, Enum):
+    Fixed = 'Fixed'
+    Volume = 'Volume'

@@ -33,6 +33,8 @@ def create_setting(db: Session, setting: schemas.Setting):
 def update_setting(setting_id: str, data:schemas.SettingBase, db: Session):
     repo = TableRepository(db, models.Setting)
     setting = repo.find_by_id(setting_id)
+    if not setting:
+        raise HTTPException(status_code=404, detail="Setting Not Found")
     if setting:
         try:
             update_data = data.model_dump(exclude_unset=True)
@@ -42,7 +44,7 @@ def update_setting(setting_id: str, data:schemas.SettingBase, db: Session):
         except Exception as e:
             print("Error updating Setting",e.__str__())
             raise HTTPException(status_code=400, detail="Unable to Update the Setting")
-    return jsonable_encoder(setting)
+    return setting
 
 
 def delete_setting(setting_id: str, db: Session):

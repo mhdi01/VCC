@@ -37,6 +37,8 @@ def retrieve_profile(profile_id: str, db:Session):
 def update_profile(profile_id: str, data:schemas.ProfileBase, db: Session):
     repo = TableRepository(db, models.Profile)
     profile = repo.find_by_id(profile_id)
+    if not profile:
+        raise HTTPException(status_code=404, detail='Profile Not Found')
     if profile:
         try:
             update_data = data.model_dump(exclude_unset=True)
@@ -47,7 +49,7 @@ def update_profile(profile_id: str, data:schemas.ProfileBase, db: Session):
             print("Error updating Profile",e.__str__())
             raise HTTPException(status_code=400, detail="Unable to Update the Profile")
         
-    return jsonable_encoder(profile)
+    return profile
 
 
 def delete_profile(profile_id: str, db: Session):

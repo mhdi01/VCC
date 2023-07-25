@@ -10,7 +10,7 @@ router = APIRouter(
     dependencies=[Depends(get_db)]
 )
 
-@router.post("/")
+@router.post("/", response_model=schemas.SettingOut)
 def create_setting(setting: schemas.Setting, db: Session = Depends(get_db)):
     setting_obj = crud.get_setting_by_name(name=setting.name, db=db)
     if setting_obj:
@@ -19,25 +19,27 @@ def create_setting(setting: schemas.Setting, db: Session = Depends(get_db)):
     resp = crud.create_setting(db=db, setting=setting)
     return resp
 
-@router.get("/")
+@router.get("/", response_model=list[schemas.SettingOut])
 def read_setting(db: Session = Depends(get_db)):
     resp = crud.get_settings(db=db)
     return resp
 
 
-@router.get("/{setting_id}")
+@router.get("/{setting_id}", response_model=schemas.SettingOut)
 def retrieve_setting(setting_id: str, db: Session = Depends(get_db)):
     resp = crud.retrieve_setting(setting_id=setting_id, db=db)
+    if not resp:
+        raise HTTPException(status_code=404, detail="Setting Not Found")
     return resp
 
 
-@router.put("/{setting_id}")
+@router.put("/{setting_id}", response_model=schemas.SettingOut)
 def update_setting(setting_id: str, data:schemas.SettingBase, db:Session = Depends(get_db)):
     resp = crud.update_setting(setting_id=setting_id, data=data, db=db)
     return resp
 
 
-@router.patch("/{setting_id}")
+@router.patch("/{setting_id}", response_model=schemas.SettingOut)
 def update_setting_partial(setting_id: str, data:schemas.SettingPatch, db: Session = Depends(get_db)):
     resp = crud.update_setting(setting_id=setting_id, data=data, db=db)
     return resp
