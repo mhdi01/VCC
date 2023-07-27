@@ -1,13 +1,10 @@
 import models
 from sqlalchemy.sql import func
 import time
-from sqlalchemy.orm import Session
-from sqlalchemy import and_ , or_
 from models import *
 from fastapi import HTTPException
-from . import schemas
-from constraint import Problem, AllDifferentConstraint
-
+from cpmpy import *
+from cpmpy.solvers import CPM_ortools
 import time
 
 def check_type_constraints(db, schedule, capacity, update_data=None):
@@ -28,58 +25,68 @@ def check_update_constraint(schedule, data):
         return True
 
 
+
 def check_book_constraints(db, capacity, schedule, update_data=None):
     if not check_type_constraints(db, schedule, capacity, update_data):
         return False
-    
-    if update_data and 'StartTime' in update_data: schedule_start_time = time.mktime(update_data['StartTime'].timetuple())
-    elif update_data and 'StartTime' not in update_data: schedule_start_time = schedule.StartTime
-    else: schedule_start_time = time.mktime(schedule.StartTime.timetuple())
 
-    if update_data and 'EndTime' in update_data: schedule_end_time = time.mktime(update_data['EndTime'].timetuple())
-    elif update_data and 'Endtime' not in update_data: schedule_end_time = schedule.EndTime
-    else: schedule_end_time = time.mktime(schedule.EndTime.timetuple())
+    if update_data and 'StartTime' in update_data:
+        schedule_start_time = time.mktime(update_data['StartTime'].timetuple())
+    elif update_data and 'StartTime' not in update_data:
+        schedule_start_time = schedule.StartTime
+    else:
+        schedule_start_time = time.mktime(schedule.StartTime.timetuple())
 
-    sch_limit = ''
-    if update_data and 'SeatLimit' in update_data: sch_limit = update_data['SeatLimit']
-    else: sch_limit = schedule.SeatLimit
+    if update_data and 'EndTime' in update_data:
+        schedule_end_time = time.mktime(update_data['EndTime'].timetuple())
+    elif update_data and 'EndTime' not in update_data:
+        schedule_end_time = schedule.EndTime
+    else:
+        schedule_end_time = time.mktime(schedule.EndTime.timetuple())
 
-    problem = Problem()
-    conflicting_schedules = db.query(Schedule.id)\
+    if update_data and 'SeatLimit' in update_data:
+        sch_limit = update_data['SeatLimit']
+    else:
+        sch_limit = schedule.SeatLimit
+
+    # Define the constraint satisfaction problem (CSP) using cpmpy
+    model = Model()
+
+    # Create variables for the new schedule within its time range
+    new_schedule_var = intvar(0, sch_limit, name="NewSchedule")
+
+    conflicting_schedules = db.query(Schedule.id, Schedule.SeatLimit)\
         .filter(
             Schedule.CapacityId == capacity.id,
             Schedule.EndTime >= schedule_start_time,
             Schedule.StartTime <= schedule_end_time
         ).all()
-    schedule_vars = [
-        f"{obj.id}"
-        for obj in conflicting_schedules
-    ]
+    
 
-    # Add variables for new schedule within its time range
-    new_schedule_var = f"NewSchedule"
-    problem.addVariable(new_schedule_var, range(sch_limit + 1))
+    # Create variables for existing schedules within the time range
+    schedule_vars = [intvar(0, s.SeatLimit, name=f"Schedule_{s}") for s in conflicting_schedules]
 
 
-    # Add variables for existing schedules within the time range
-    for schedule_var in schedule_vars:
-        schedule_limit = db.query(Schedule).filter(Schedule.id == schedule_var).first().SeatLimit
-        problem.addVariable(schedule_var, range(schedule_limit + 1))
+    # Total seat limit constraint for existing and new schedules
+    total_limit = capacity.CapacityLimit
+    sch_sum = sum(obj.ub for obj in schedule_vars)
+    model += sch_sum + new_schedule_var <= total_limit
+    
+    assert sum(schedule_vars) + new_schedule_var <= total_limit, "Capacity Limit exceed the Cluster Limit in the specific time range"
+    # Find the optimal solution to maximize the new schedule's seat limit (if needed)
+    model.maximize(new_schedule_var)
 
+    # Use the solver to find the optimal solution
+    solver = CPM_ortools(model)
+    solution = solver.solve()
 
-    # Capacity limit constraint for existing schedules
-    for schedule_var in schedule_vars:
-        schedule_limit = db.query(Schedule).filter(Schedule.id == schedule_var).first().SeatLimit
-        problem.addConstraint(lambda schedule, limit=schedule_limit: schedule <= limit, (schedule_var,))
+    if not solution:
+        print('No feasible solution')
+        return False
 
-
-    problem.addConstraint(lambda *schedules, total_limit=capacity.CapacityLimit: sum(schedules) <= total_limit, [new_schedule_var] + schedule_vars)
-
-    solution = problem.getSolution()
-    if solution['NewSchedule'] != sch_limit:
+    if new_schedule_var.value() != sch_limit:
         print('Is Not Optimal')
         return False
-    
     else:
-        print('IsOptimal')
+        print('Is Optimal')
         return True

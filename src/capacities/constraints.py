@@ -1,12 +1,12 @@
 import models
 from sqlalchemy.sql import func
 import time
-from sqlalchemy.orm import Session
 from sqlalchemy import and_ , or_
 from models import *
 from fastapi import HTTPException
-from . import schemas
-from constraint import Problem, AllDifferentConstraint
+from cpmpy import *
+from cpmpy.solvers import CPM_ortools
+
 
 import time
 
@@ -43,44 +43,45 @@ def check_book_constraints(db, cluster, capacity, update_data=None):
     if update_data and 'CapacityLimit' in update_data: cap_limit = update_data['CapacityLimit']
     else: cap_limit = capacity.CapacityLimit
 
-    problem = Problem()
+    model = Model()
+
+    # Create variables for the new schedule within its time range
+    new_capacity_var = intvar(0, cap_limit, name="NewCapacity")
+
     conflicting_capacities = db.query(
-        Capacity
+        Capacity.id, Capacity.CapacityLimit
         ).filter(
-        Capacity.ClusterId == cluster.id
-        ).filter(
-        and_(Capacity.EndTime >= capacity_start_time, Capacity.StartTime <= capacity_end_time)
+        Capacity.ClusterId == cluster.id,
+        Schedule.EndTime >= capacity_start_time,
+        Schedule.StartTime <= capacity_end_time
         ).all()
-
-    capacity_vars = [
-        f"{obj.id}"
-        for obj in conflicting_capacities
-    ]
-
-    # Add variables for new capacity within its time range
-    new_capacity_var = f"NewCapacity"
-    problem.addVariable(new_capacity_var, range(cap_limit + 1))
-
-
-    # Add variables for existing capacities within the time range
-    for capacity_var in capacity_vars:
-        capacity_limit = db.query(Capacity).filter(Capacity.id == capacity_var).first().CapacityLimit
-        problem.addVariable(capacity_var, range(capacity_limit + 1))
-
-
-    # Capacity limit constraint for existing capacities
-    for capacity_var in capacity_vars:
-        capacity_limit = db.query(Capacity).filter(Capacity.id == capacity_var).first().CapacityLimit
-        problem.addConstraint(lambda capacity, limit=capacity_limit: capacity <= limit, (capacity_var,))
-
-
-    problem.addConstraint(lambda *capacities, total_limit=cluster.MaxLimit: sum(capacities) <= total_limit, [new_capacity_var] + capacity_vars)
-
-    solution = problem.getSolution()
-    if solution['NewCapacity'] != cap_limit:
-        print('Is Not Optimal')
-        raise HTTPException(status_code=400, detail="Capacity Limit exceed the Cluster Limit in the specific time range")
     
+
+    # Create variables for existing capacities within the time range
+    capacity_vars = [intvar(0, s.CapacityLimit, name=f"Capacity_{s}") for s in conflicting_capacities]
+
+    # Total seat limit constraint for existing and new schedules
+    total_limit = cluster.MaxLimit
+    cap_sum = sum(obj.ub for obj in capacity_vars)
+    model += cap_sum + new_capacity_var <= total_limit
+    
+
+    # Find the optimal solution to maximize the new schedule's seat limit (if needed)
+    model.maximize(new_capacity_var)
+
+
+    # Use the solver to find the optimal solution
+    solver = CPM_ortools(model)
+    solution = solver.solve()
+
+    if not solution:
+        print('No feasible solution')
+        return False
+
+    if new_capacity_var.value() != cap_limit:
+        print('Is Not Optimal')
+        return False
     else:
-        print('IsOptimal')
+        print('Is Optimal')
         return True
+
