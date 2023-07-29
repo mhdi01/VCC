@@ -52,8 +52,8 @@ def check_book_constraints(db, cluster, capacity, update_data=None):
         Capacity.id, Capacity.CapacityLimit
         ).filter(
         Capacity.ClusterId == cluster.id,
-        Schedule.EndTime >= capacity_start_time,
-        Schedule.StartTime <= capacity_end_time
+        Capacity.EndTime >= capacity_start_time,
+        Capacity.StartTime <= capacity_end_time
         ).all()
     
 
@@ -62,10 +62,13 @@ def check_book_constraints(db, cluster, capacity, update_data=None):
 
     # Total seat limit constraint for existing and new schedules
     total_limit = cluster.MaxLimit
+    for obj in capacity_vars:
+        print(obj.ub)
     cap_sum = sum(obj.ub for obj in capacity_vars)
     model += cap_sum + new_capacity_var <= total_limit
     
 
+    assert cap_sum + new_capacity_var <= total_limit, "Capacity Limit exceed the Cluster Limit in the specific time range"
     # Find the optimal solution to maximize the new schedule's seat limit (if needed)
     model.maximize(new_capacity_var)
 
