@@ -17,10 +17,12 @@ def get_capacities(profile_id: str, db: Session, skip: int = 0, limit: int = 100
 def create_capacity(db: Session, capacity: schemas.Capacity, profile_id: str):
     cluster = db.query(models.Cluster).filter(models.Cluster.id == capacity.ClusterId).first()
     if not cluster:
-        raise HTTPException(status_code=400, detail="Unable to Create the Capacity")
+        raise HTTPException(status_code=400, detail="Cluster Doesnt Exists")
 
-    if not constraints.check_book_constraints(db, cluster, capacity):
-        raise HTTPException(status_code=400, detail="Constraints are not passed")
+    if capacity.PlanType == models.PlanTypeEnum.Fixed.value:
+        if not constraints.check_book_constraints(db, cluster, capacity):
+            raise HTTPException(status_code=400, detail="Constraints are not passed")
+
 
     try:
         capacity.ProfileId = profile_id
@@ -49,12 +51,16 @@ def update_capacity(profile_id:str, capacity_id: str, data: schemas.CapacityBase
         raise HTTPException(status_code=404, detail='Capacity Not found')
     update_data = data.model_dump(exclude_unset=True)
     if capacity:
-        if not constraints.check_book_constraints(db, capacity.CapacityCluster, capacity, update_data):
-            raise HTTPException(status_code=400, detail="Constraints are not passed")
+        if 'PlanType' in update_data and update_data['PlanType'] == models.PlanTypeEnum.Fixed.value:
+            if not constraints.check_book_constraints(db, capacity.CapacityCluster, capacity, update_data):
+                raise HTTPException(status_code=400, detail="Constraints are not passed")
+            
         if 'StartTime' in update_data:
             update_data['StartTime'] = time.mktime(update_data['StartTime'].timetuple())
+
         if 'EndTime' in update_data:
             update_data['EndTime'] = time.mktime(update_data['EndTime'].timetuple())
+
         update_data['ProfileId'] = profile_id
         try:
             repo.set_attrs(capacity, update_data)

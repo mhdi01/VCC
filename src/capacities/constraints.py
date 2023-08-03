@@ -28,17 +28,25 @@ def check_update_constraint(capacity, data):
         return True
 
 
-def check_book_constraints(db, cluster, capacity, update_data=None):
+def check_book_constraints(db, cluster, capacity, update_data=None, from_schedule=None):
     if not check_type_constraints(db, cluster, capacity, update_data):
         return False
     
     if update_data and 'StartTime' in update_data: capacity_start_time = time.mktime(update_data['StartTime'].timetuple())
     elif update_data and 'StartTime' not in update_data: capacity_start_time = capacity.StartTime
-    else: capacity_start_time = time.mktime(capacity.StartTime.timetuple())
+    else:
+        if from_schedule:
+            capacity_start_time = capacity.StartTime
+        else:
+            capacity_start_time = time.mktime(capacity.StartTime.timetuple())
 
-    if update_data and 'EndTime' in update_data: capacity_end_time = time.mktime(update_data['EndTime'].timetuple())
-    elif update_data and 'Endtime' not in update_data: capacity_end_time = capacity.EndTime
-    else: capacity_end_time = time.mktime(capacity.EndTime.timetuple())
+    if update_data and 'EndTime' in update_data: capacity_end_time = time.mktime(update_data['EndTime'].timetuple()) + 120
+    elif update_data and 'Endtime' not in update_data: capacity_end_time = capacity.EndTime + 120
+    else:
+        if from_schedule:
+            capacity_end_time = capacity.EndTime + 120
+        else: 
+            capacity_end_time = time.mktime(capacity.EndTime.timetuple()) + 120
 
     if update_data and 'CapacityLimit' in update_data: cap_limit = update_data['CapacityLimit']
     else: cap_limit = capacity.CapacityLimit
@@ -53,7 +61,8 @@ def check_book_constraints(db, cluster, capacity, update_data=None):
         ).filter(
         Capacity.ClusterId == cluster.id,
         Capacity.EndTime >= capacity_start_time,
-        Capacity.StartTime <= capacity_end_time
+        Capacity.StartTime <= capacity_end_time,
+        Capacity.PlanType == models.PlanTypeEnum.Fixed
         ).all()
     
 
@@ -62,9 +71,11 @@ def check_book_constraints(db, cluster, capacity, update_data=None):
 
     # Total seat limit constraint for existing and new schedules
     total_limit = cluster.MaxLimit
-    for obj in capacity_vars:
-        print(obj.ub)
     cap_sum = sum(obj.ub for obj in capacity_vars)
+    if update_data or from_schedule:
+        cap_sum = cap_sum - capacity.CapacityLimit
+
+    if cap_sum <= 0 : cap_sum = cap_sum * -1
     model += cap_sum + new_capacity_var <= total_limit
     
 
@@ -78,12 +89,11 @@ def check_book_constraints(db, cluster, capacity, update_data=None):
     solution = solver.solve()
 
     if not solution:
-        print('No feasible solution')
-        return False
+        raise HTTPException(status_code=400, detail="Capacities CapacityLimit exceed the Cluster MaxLimit")
 
     if new_capacity_var.value() != cap_limit:
-        print('Is Not Optimal')
-        return False
+        raise HTTPException(status_code=400, detail="Capacities CapacityLimit exceed the Cluster MaxLimit")
+    
     else:
         print('Is Optimal')
         return True

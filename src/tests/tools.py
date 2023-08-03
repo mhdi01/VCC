@@ -86,7 +86,7 @@ def delete_profile(profile_id):
 def create_capacity(profile_id, cluster_id):
     data = {
         "SeatType": "VCRoom",
-        "PlanType": "Fixed",
+        "PlanType": "Volume",
         "CapacityLimit": 10000,
         "ProfileId": profile_id,
         "ClusterId": cluster_id,

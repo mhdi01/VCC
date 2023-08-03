@@ -21,7 +21,7 @@ def check_update_constraint(schedule, data):
     if 'SeatType' in data:
         if schedule.ScheduleCapacity.SeatType.value != data['SeatType']:
             print("SeatTypes are Not the same Schedule SeatType is {0} , Capacity SeatType is {1}".format(data['SeatType'], schedule.ScheduleCapacity.SeatType.value))
-            raise HTTPException(status_code=400, detail="Schedule SeatLimit exceed the Capacity Limit in the specific time range")
+            raise HTTPException(status_code=400, detail="SeatType is not as same as the capacity seatType")
         return True
 
 
@@ -38,11 +38,11 @@ def check_book_constraints(db, capacity, schedule, update_data=None):
         schedule_start_time = time.mktime(schedule.StartTime.timetuple())
 
     if update_data and 'EndTime' in update_data:
-        schedule_end_time = time.mktime(update_data['EndTime'].timetuple())
+        schedule_end_time = time.mktime(update_data['EndTime'].timetuple()) + 120
     elif update_data and 'EndTime' not in update_data:
-        schedule_end_time = schedule.EndTime
+        schedule_end_time = schedule.EndTime + 120
     else:
-        schedule_end_time = time.mktime(schedule.EndTime.timetuple())
+        schedule_end_time = time.mktime(schedule.EndTime.timetuple()) + 120
 
     if update_data and 'SeatLimit' in update_data:
         sch_limit = update_data['SeatLimit']
@@ -70,7 +70,11 @@ def check_book_constraints(db, capacity, schedule, update_data=None):
     # Total seat limit constraint for existing and new schedules
     total_limit = capacity.CapacityLimit
     sch_sum = sum(obj.ub for obj in schedule_vars)
-    model += sch_sum + new_schedule_var <= total_limit
+    if update_data:
+        sch_sum = sch_sum - schedule.SeatLimit
+    
+    if sch_sum <= 0 : sch_sum = sch_sum * -1
+    model += int(sch_sum) + new_schedule_var <= total_limit
     
     assert sum(schedule_vars) + new_schedule_var <= total_limit, "Capacity Limit exceed the Cluster Limit in the specific time range"
     # Find the optimal solution to maximize the new schedule's seat limit (if needed)
@@ -81,12 +85,80 @@ def check_book_constraints(db, capacity, schedule, update_data=None):
     solution = solver.solve()
 
     if not solution:
-        print('No feasible solution')
-        return False
+        raise HTTPException(status_code=400, detail="Schedule SeatLimit exceed the Capacity Limit in the specific time range")
 
     if new_schedule_var.value() != sch_limit:
-        print('Is Not Optimal')
-        return False
+        raise HTTPException(status_code=400, detail="Schedule SeatLimit exceed the Capacity Limit in the specific time range")
+    
     else:
         print('Is Optimal')
         return True
+
+
+
+def check_book_cluster_constraints(db, schedule, cluster, update_data=None):
+    if update_data and 'StartTime' in update_data:
+        schedule_start_time = time.mktime(update_data['StartTime'].timetuple())
+    elif update_data and 'StartTime' not in update_data:
+        schedule_start_time = schedule.StartTime
+    else:
+        schedule_start_time = time.mktime(schedule.StartTime.timetuple())
+
+    if update_data and 'EndTime' in update_data:
+        schedule_end_time = time.mktime(update_data['EndTime'].timetuple()) + 120
+    elif update_data and 'EndTime' not in update_data:
+        schedule_end_time = schedule.EndTime + 120
+    else:
+        schedule_end_time = time.mktime(schedule.EndTime.timetuple()) + 120
+
+    if update_data and 'SeatLimit' in update_data:
+        sch_limit = update_data['SeatLimit']
+    else:
+        sch_limit = schedule.SeatLimit
+
+    # Define the constraint satisfaction problem (CSP) using cpmpy
+    model = Model()
+
+    # Create variables for the new schedule within its time range
+    new_schedule_var = intvar(0, sch_limit, name="NewSchedule")
+
+    conflicting_schedules = db.query(Schedule.id, Schedule.SeatLimit)\
+        .filter(
+            Schedule.ClusterId == cluster.id,
+            Schedule.EndTime >= schedule_start_time,
+            Schedule.StartTime <= schedule_end_time
+        ).all()
+    
+
+    # Create variables for existing schedules within the time range
+    schedule_vars = [intvar(0, s.SeatLimit, name=f"Schedule_{s}") for s in conflicting_schedules]
+
+
+    # Total seat limit constraint for existing and new schedules
+    total_limit = cluster.MaxLimit
+    sch_sum = sum(obj.ub for obj in schedule_vars)
+    if update_data:
+        sch_sum = sch_sum - schedule.SeatLimit
+    
+    if sch_sum <= 0 : sch_sum = sch_sum * -1
+    model += int(sch_sum) + new_schedule_var <= total_limit
+    
+    assert sum(schedule_vars) + new_schedule_var <= total_limit, "Capacity Limit exceed the Cluster Limit in the specific time range"
+    # Find the optimal solution to maximize the new schedule's seat limit (if needed)
+    model.maximize(new_schedule_var)
+
+    # Use the solver to find the optimal solution
+    solver = CPM_ortools(model)
+    solution = solver.solve()
+
+    if not solution:
+        raise HTTPException(status_code=400, detail="Schedule SeatLimit exceed the Cluster Limit in the specific time range")
+
+    if new_schedule_var.value() != sch_limit:
+        raise HTTPException(status_code=400, detail="Schedule SeatLimit exceed the Cluster Limit in the specific time range")
+    
+    else:
+        print('Is Optimal')
+        return True
+
+
