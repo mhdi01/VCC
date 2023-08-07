@@ -5,7 +5,9 @@ from models import *
 from fastapi import HTTPException
 from cpmpy import *
 from cpmpy.solvers import CPM_ortools
+from actions import solve_maintenance_conflict
 import time
+from sqlalchemy import and_, or_
 
 def check_type_constraints(db, schedule, capacity, update_data=None):
     if update_data and 'SeatType' in update_data: seat_type = update_data['SeatType']
@@ -55,6 +57,12 @@ def check_book_constraints(db, capacity, schedule, update_data=None):
     # Create variables for the new schedule within its time range
     new_schedule_var = intvar(0, sch_limit, name="NewSchedule")
 
+    if not solve_maintenance_conflict(schedule_start_time, schedule_end_time, capacity.CapacityCluster.MaintenanceStartTime, capacity.CapacityCluster.MaintenanceEndTime):
+        raise HTTPException(status_code=400, detail="Schedule Time range is in Maintenance Time range")
+
+    if not check_schedule_time_period(schedule_start_time, schedule_end_time, capacity.StartTime, capacity.EndTime):
+        raise HTTPException(status_code=400, detail="Schedule Time range is not in capacity Time range")
+    
     conflicting_schedules = db.query(Schedule.id, Schedule.SeatLimit)\
         .filter(
             Schedule.CapacityId == capacity.id,
@@ -162,3 +170,23 @@ def check_book_cluster_constraints(db, schedule, cluster, update_data=None):
         return True
 
 
+
+def check_schedule_time_period(start_time, end_time, capacity_start_time, capacity_end_time):
+    # Check for overlaps using cpmpy
+    overlap_model = Model()
+
+    # Variables to represent the start and end times of the new schedule
+    schedule_start_var = IntVar(0, int(start_time))
+    schedule_end_var = IntVar(0, int(end_time))
+
+    # Constraint: schedule_end_var should be greater than or equal to schedule_start_var
+    overlap_model += schedule_end_var >= schedule_start_var
+
+    # Constraint: new schedule should not overlap with capacity time period
+    overlap_model += (schedule_start_var.ub >= int(capacity_start_time)) and (schedule_end_var.ub <= int(capacity_end_time))
+
+    # Check if the model is satisfiable (i.e., no overlap exists)
+    if overlap_model.solve():
+        return True
+    else:
+        return False

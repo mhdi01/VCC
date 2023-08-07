@@ -5,8 +5,6 @@ from sqlalchemy.types import ARRAY, Double
 import enum
 from database import Base
 import datetime
-
-
 from sqlalchemy.types import TypeDecorator
 
 
@@ -42,6 +40,8 @@ class Cluster(Base):
     DefaultSetting = relationship("Setting", back_populates="settings")
     Status = Column(Boolean, nullable=False)
     RegistrationTime = Column(DateTime, nullable=True)
+    MaintenanceStartTime = Column(Float, nullable=True)
+    MaintenanceEndTime = Column(Float, nullable=True)
     LastUpdateTime = Column(DateTime, nullable=True)
     CreatedBy = Column(String(length=32), nullable=True)
     LastUpdateBy = Column(String(length=32), nullable=True)

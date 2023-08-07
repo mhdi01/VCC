@@ -8,6 +8,8 @@ class ClusterBase(BaseModel):
     DefaultFQDN: constr(max_length=100)
     DefaultSettingId: str
     Status: bool
+    MaintenanceStartTime: datetime.datetime | None = None
+    MaintenanceEndTime: datetime.datetime | None = None
     RegistrationTime: datetime.date | None = None
     LastUpdateTime: datetime.date | None = None
     CreatedBy: str | None = None
@@ -28,6 +30,8 @@ class ClusterOut(BaseModel):
     DefaultFQDN: constr(max_length=100)
     DefaultSettingId: str 
     Status: bool
+    MaintenanceStartTime: datetime.datetime | None = None
+    MaintenanceEndTime: datetime.datetime | None = None
     RegistrationTime: datetime.date | None = None
     LastUpdateTime: datetime.date | None = None
     CreatedBy: str | None = None
@@ -42,6 +46,8 @@ class ClusterPatch(ClusterBase):
     DefaultFQDN: constr(max_length=100) | None = None
     DefaultSettingId: str | None = None
     Status: bool | None = None
+    MaintenanceStartTime: datetime.datetime | None = None
+    MaintenanceEndTime: datetime.datetime | None = None
     RegistrationTime: datetime.date | None = None
     LastUpdateTime: datetime.date | None = None
     CreatedBy: str | None = None

@@ -63,8 +63,8 @@ def test_update_schedule():
 def test_update_schedule_partial():
     data = {
         "CapacityLimit": 1000,
-        "StartTime": "2022-12-13 15:00:00",
-        "EndTime": "2022-12-13 18:00:00",
+        "StartTime": "2022-12-12 13:00:00",
+        "EndTime": "2022-12-12 13:30:00",
     }
     response = client.patch(
         "/api/Profiles/{0}/Capacities/{1}/Schedules/{2}/".format(profile_id, capacity_id, schedule_id),

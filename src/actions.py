@@ -1,5 +1,8 @@
 import uuid
 from sqlalchemy.orm import Session
+from cpmpy import *
+
+
 
 class TableRepository:
 
@@ -50,3 +53,25 @@ class TableRepository:
   
 def id_generator():
     return "{0}-{1}-{2}-{3}-{4}".format(uuid.uuid4().hex[:8],uuid.uuid4().hex[:4],uuid.uuid4().hex[:4],uuid.uuid4().hex[:4],uuid.uuid4().hex[:12])
+
+
+def solve_maintenance_conflict(start_time, end_time, maintenance_start_time, maintenance_end_time):
+    # Check for overlaps using cpmpy
+    overlap_model = Model()
+
+    # Variables to represent the start and end times of the new schedule
+    schedule_start_var = IntVar(0, int(start_time))
+    schedule_end_var = IntVar(0, int(end_time))
+
+    # Constraint: schedule_end_var should be greater than or equal to schedule_start_var
+    overlap_model += schedule_end_var >= schedule_start_var
+
+    # Constraint: new schedule should not overlap with cluster maintenance time
+    overlap_model += (schedule_start_var.ub >= int(maintenance_end_time)) | (schedule_end_var.ub <= int(maintenance_start_time))
+
+    print(overlap_model.solve())
+    # Check if the model is satisfiable (i.e., no overlap exists)
+    if overlap_model.solve():
+        return True
+    else:
+        return False

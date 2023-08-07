@@ -5,6 +5,7 @@ from fastapi import Depends, FastAPI, HTTPException, APIRouter
 import models
 from . import schemas
 from actions import id_generator, TableRepository
+import time
 
 
 def get_clusters(db: Session, skip: int = 0, limit: int = 100):
@@ -14,6 +15,13 @@ def get_clusters(db: Session, skip: int = 0, limit: int = 100):
 def create_cluster(db: Session, cluster: schemas.Cluster):
     try:
         cluster.id = id_generator()
+        try:
+            cluster.MaintenanceStartTime = time.mktime(cluster.MaintenanceStartTime.timetuple())
+            cluster.MaintenanceEndTime = time.mktime(cluster.MaintenanceEndTime.timetuple())
+        except Exception as e:
+            cluster.MaintenanceStartTime = None
+            cluster.MaintenanceEndTime = None
+            
         db_cluster = models.Cluster(**cluster.model_dump())
         db.add(db_cluster)
         db.commit()
@@ -37,6 +45,12 @@ def update_cluster(cluster_id: str, data: schemas.ClusterBase, db:Session):
     if cluster:
         try:
             update_data = data.model_dump(exclude_unset=True)
+            if 'MaintenanceStartTime' in update_data:
+                update_data['MaintenanceStartTime'] = time.mktime(update_data['MaintenanceStartTime'].timetuple())
+
+            if 'MaintenanceEndTime' in update_data:
+                update_data['MaintenanceEndTime'] = time.mktime(update_data['MaintenanceEndTime'].timetuple())
+            
             repo.set_attrs(cluster, update_data)
             db.commit()
             db.refresh(cluster)

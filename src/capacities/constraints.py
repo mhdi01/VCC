@@ -3,9 +3,11 @@ from sqlalchemy.sql import func
 import time
 from sqlalchemy import and_ , or_
 from models import *
+from actions import solve_maintenance_conflict
 from fastapi import HTTPException
 from cpmpy import *
 from cpmpy.solvers import CPM_ortools
+from sqlalchemy import and_, or_
 
 
 import time
@@ -53,6 +55,9 @@ def check_book_constraints(db, cluster, capacity, update_data=None, from_schedul
 
     model = Model()
 
+    if not solve_maintenance_conflict(capacity_start_time, capacity_end_time, cluster.MaintenanceStartTime, cluster.MaintenanceEndTime):
+        raise HTTPException(status_code=400, detail="Capacity Time range is in Maintenance Time range")
+    
     # Create variables for the new schedule within its time range
     new_capacity_var = intvar(0, cap_limit, name="NewCapacity")
 
@@ -65,7 +70,6 @@ def check_book_constraints(db, cluster, capacity, update_data=None, from_schedul
         Capacity.PlanType == models.PlanTypeEnum.Fixed
         ).all()
     
-
     # Create variables for existing capacities within the time range
     capacity_vars = [intvar(0, s.CapacityLimit, name=f"Capacity_{s}") for s in conflicting_capacities]
 

@@ -27,7 +27,7 @@ def book_schedule(db: Session, schedule: schemas.Schedule, capacity_id: str, pro
     if not constraints.check_book_constraints(db, capacity, schedule):
         raise HTTPException(status_code=400, detail="Constraints are not passed")
 
-    cluster = crudcluster.retrieve_cluster(cluster_id=capacity.ClusterId, db=db)
+    cluster = capacity.CapacityCluster
     if not constraints.check_book_cluster_constraints(db, schedule, cluster):
         raise HTTPException(status_code=400, detail="Constraints are not passed")
     
