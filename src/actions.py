@@ -57,6 +57,9 @@ def id_generator():
 
 def solve_maintenance_conflict(start_time, end_time, maintenance_start_time, maintenance_end_time):
     # Check for overlaps using cpmpy
+    if not maintenance_start_time or not maintenance_end_time:
+        return True
+    
     overlap_model = Model()
 
     # Variables to represent the start and end times of the new schedule
@@ -68,6 +71,28 @@ def solve_maintenance_conflict(start_time, end_time, maintenance_start_time, mai
 
     # Constraint: new schedule should not overlap with cluster maintenance time
     overlap_model += (schedule_start_var.ub >= int(maintenance_end_time)) | (schedule_end_var.ub <= int(maintenance_start_time))
+
+    print(overlap_model.solve())
+    # Check if the model is satisfiable (i.e., no overlap exists)
+    if overlap_model.solve():
+        return True
+    else:
+        return False
+
+
+def check_schedule_time_period(start_time, end_time, capacity_start_time, capacity_end_time):
+    # Check for overlaps using cpmpy
+    overlap_model = Model()
+
+    # Variables to represent the start and end times of the new schedule
+    schedule_start_var = IntVar(0, int(start_time))
+    schedule_end_var = IntVar(0, int(end_time))
+
+    # Constraint: schedule_end_var should be greater than or equal to schedule_start_var
+    overlap_model += schedule_end_var >= schedule_start_var
+
+    # Constraint: new schedule should not overlap with cluster maintenance time
+    overlap_model += (schedule_start_var.ub >= int(capacity_start_time)) and (schedule_end_var.ub <= int(capacity_end_time))
 
     print(overlap_model.solve())
     # Check if the model is satisfiable (i.e., no overlap exists)

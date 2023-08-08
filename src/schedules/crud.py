@@ -23,13 +23,15 @@ def book_schedule(db: Session, schedule: schemas.Schedule, capacity_id: str, pro
 
     if capacity.PlanType != models.PlanTypeEnum.Volume:
         raise HTTPException(status_code=400, detail="PlanType Should Be Volume to reserve a schedule")
-    
+
+
     if not constraints.check_book_constraints(db, capacity, schedule):
         raise HTTPException(status_code=400, detail="Constraints are not passed")
 
-    cluster = capacity.CapacityCluster
-    if not constraints.check_book_cluster_constraints(db, schedule, cluster):
-        raise HTTPException(status_code=400, detail="Constraints are not passed")
+    if capacity.PlanType == models.PlanTypeEnum.Volume:
+        cluster = capacity.CapacityCluster
+        if not constraints.check_book_cluster_constraints(db, schedule, cluster):
+            raise HTTPException(status_code=400, detail="Constraints are not passed")
     
     try:
         schedule.ProfileId = profile_id
@@ -62,17 +64,16 @@ def update_schedule(profile_id:str, capacity_id: str, schedule_id: str, data: sc
     if not capacity:
         raise HTTPException(status_code=400, detail="Unable to Update the Schedule")
 
-    if capacity.PlanType != models.PlanTypeEnum.Volume:
-        raise HTTPException(status_code=400, detail="PlanType Should Be Volume to reserve a schedule")
     
     update_data = data.model_dump(exclude_unset=True)
     if schedule:
         if not constraints.check_book_constraints(db, capacity, schedule, update_data):
             raise HTTPException(status_code=400, detail="Constraints are not passed")
         
-        cluster = capacity.CapacityCluster
-        if not constraints.check_book_cluster_constraints(db, schedule, cluster, update_data):
-            raise HTTPException(status_code=400, detail="Constraints are not passed")
+        if capacity.PlanType == models.PlanTypeEnum.Volume:
+            cluster = capacity.CapacityCluster
+            if not constraints.check_book_cluster_constraints(db, schedule, cluster, update_data):
+                raise HTTPException(status_code=400, detail="Constraints are not passed")
 
 
         if 'StartTime' in update_data:
